@@ -10,9 +10,9 @@
 (function () {
   'use strict';
 
-  // -------- Supabase config (same project as the rest of the dashboard) --------
-  const TOPBAR_SUPABASE_URL = 'https://rdueyxxxonnatpohfhau.supabase.co';
-  const TOPBAR_SUPABASE_KEY = 'sb_publishable_RBCxlWTUmBk2HACNdY7QZQ_NUTjeFbU';
+  // -------- Supabase config (replace with your own project URL + publishable key) --------
+  const TOPBAR_SUPABASE_URL = 'PASTE-YOUR-SUPABASE-PROJECT-URL-HERE';
+  const TOPBAR_SUPABASE_KEY = 'PASTE-YOUR-SUPABASE-PUBLISHABLE-KEY-HERE';
 
   // -------- CSS --------
   const css = `
