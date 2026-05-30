@@ -593,6 +593,39 @@ body::after {
   .gm-card { padding: 16px; }
   .gm-progress-num { font-size: 36px; }
 }
+
+/* ===== Date navigator ===== */
+.date-nav { display:flex; align-items:center; justify-content:center; gap:10px; margin:-2px 0 16px; }
+.date-nav-btn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.04); color:var(--text-secondary); border-radius:10px; font-size:18px; line-height:1; cursor:pointer; transition:background .15s,color .15s,opacity .15s; }
+.date-nav-btn:hover:not(:disabled){ background:rgba(255,255,255,0.08); color:#fff; }
+.date-nav-btn:disabled{ opacity:.25; cursor:default; }
+.date-nav-label{ position:relative; min-width:160px; text-align:center; }
+.date-nav-date{ position:relative; display:inline-block; font-size:14px; font-weight:700; color:var(--text-primary); cursor:pointer; }
+.date-nav-date input{ position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.date-nav-back{ display:block; margin:2px auto 0; border:0; background:transparent; color:#F2C063; font-size:9.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
+.date-nav.is-today .date-nav-back{ visibility:hidden; }
+
+/* ===== Period (week/month) progress bar + counters ===== */
+.period-bar { height:6px; border-radius:3px; background:rgba(255,255,255,0.06); overflow:hidden; margin-bottom:16px; }
+.period-bar-fill { height:100%; width:0; background:#6BE3A4; box-shadow:0 0 6px rgba(107,227,164,0.40); border-radius:3px; transition:width .45s cubic-bezier(0.22,1,0.36,1); }
+.gm-counter { display:inline-flex; align-items:center; gap:8px; flex-shrink:0; }
+.gm-step { width:26px; height:26px; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.28); color:var(--text-primary); border-radius:8px; font-size:16px; line-height:1; cursor:pointer; transition:background .15s,border-color .15s; }
+.gm-step:hover { background:rgba(255,255,255,0.08); }
+.gm-step:disabled { opacity:.3; cursor:default; }
+.gm-count { font-family:var(--font-mono); font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-secondary); min-width:42px; text-align:center; }
+.gm-target { width:54px; flex:0 0 auto; padding:11px 8px; text-align:center; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.28); color:var(--text-primary); font-family:inherit; font-size:14px; outline:none; }
+.gm-target::placeholder { color:var(--text-tertiary); }
+
+/* ===== Archive ===== */
+.arch-list { list-style:none; margin:0; padding:0; max-height:340px; overflow-y:auto; }
+.arch-row { display:flex; align-items:center; gap:12px; width:100%; padding:11px 12px; margin-bottom:6px; background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.06); border-radius:12px; cursor:pointer; text-align:left; transition:background .2s; }
+.arch-row:hover { background:rgba(255,255,255,0.07); }
+.arch-date { font-size:13px; font-weight:600; color:var(--text-primary); min-width:104px; }
+.arch-bar-wrap { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,0.06); overflow:hidden; }
+.arch-bar-fill { height:100%; background:#6BE3A4; border-radius:3px; }
+.arch-bar-fill.miss { background:#F2C063; }
+.arch-count { font-family:var(--font-mono); font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-secondary); min-width:54px; text-align:right; }
+.arch-check { color:var(--success); width:14px; text-align:center; }
 </style>
 </head>
 <body>
@@ -644,6 +677,14 @@ body::after {
 
     <!-- TODAY -->
     <div class="gm-card" id="gmCardToday">
+      <div class="date-nav is-today" id="dayDateNav">
+        <button type="button" class="date-nav-btn" id="dayPrev" aria-label="Previous day">‹</button>
+        <div class="date-nav-label">
+          <span class="date-nav-date" id="dayDateLabel">Today<input type="date" id="dayDatePicker" aria-label="Pick a date"></span>
+          <button type="button" class="date-nav-back" id="dayBackToday">Back to today</button>
+        </div>
+        <button type="button" class="date-nav-btn" id="dayNext" aria-label="Next day">›</button>
+      </div>
       <div class="gm-header">
         <div class="gm-header-left">
           <div class="gm-eyebrow" id="todayLabel">Today —</div>
@@ -671,6 +712,50 @@ body::after {
       </div>
     </div>
 
+    <!-- THIS WEEK -->
+    <div class="gm-card" id="gmCardWeek">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow" id="weekLabel">This week</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="weekPctNum">0</span>
+            <span class="gm-progress-total">%</span>
+            <span class="gm-progress-label">complete</span>
+          </div>
+        </div>
+      </div>
+      <div class="period-bar"><div class="period-bar-fill" id="weekBarFill"></div></div>
+      <ul id="weekList" class="goal-list gm-list"></ul>
+      <div id="weekEmpty" class="empty-state">No weekly goals yet — add one below.</div>
+      <div class="goal-input-wrap gm-input-wrap">
+        <input id="weekInput" class="gm-input" type="text" placeholder="Add a goal for this week…" autocomplete="off">
+        <input id="weekTarget" class="gm-target" type="number" min="1" placeholder="×1" title="How many times? Leave blank for a simple checkbox.">
+        <button type="button" id="weekAddBtn" class="gm-add">+ Add</button>
+      </div>
+    </div>
+
+    <!-- THIS MONTH -->
+    <div class="gm-card" id="gmCardMonth">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow" id="monthLabel">This month</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="monthPctNum">0</span>
+            <span class="gm-progress-total">%</span>
+            <span class="gm-progress-label">complete</span>
+          </div>
+        </div>
+      </div>
+      <div class="period-bar"><div class="period-bar-fill" id="monthBarFill"></div></div>
+      <ul id="monthList" class="goal-list gm-list"></ul>
+      <div id="monthEmpty" class="empty-state">No monthly goals yet — add one below.</div>
+      <div class="goal-input-wrap gm-input-wrap">
+        <input id="monthInput" class="gm-input" type="text" placeholder="Add a goal for this month…" autocomplete="off">
+        <input id="monthTarget" class="gm-target" type="number" min="1" placeholder="×1" title="How many times? Leave blank for a simple checkbox.">
+        <button type="button" id="monthAddBtn" class="gm-add">+ Add</button>
+      </div>
+    </div>
+
     <!-- PLAN TOMORROW -->
     <div class="gm-card gm-card-tomorrow" id="gmCardTomorrow">
       <div class="gm-header">
@@ -688,6 +773,14 @@ body::after {
         <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
         <div class="gm-status" id="tomorrowStatus"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Archive</div>
+    <div class="gm-card">
+      <ul id="archiveList" class="arch-list"></ul>
+      <div id="archiveEmpty" class="empty-state">Past days will show up here once you've logged a few.</div>
     </div>
   </div>
 
@@ -752,32 +845,69 @@ body::after {
   function todayKey()    { return 'goals:' + getActiveDateString(); }
   function tomorrowKey() { return 'goals:' + getTomorrowDateString(); }
 
+  // The day the daily card is currently showing (default today, can browse back).
+  let viewDate = getActiveDateString();
+  function isViewingToday() { return viewDate === getActiveDateString(); }
+  function viewKey() { return 'goals:' + viewDate; }
+  function shiftDate(dateStr, days) {
+    const p = dateStr.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    d.setDate(d.getDate() + days);
+    return dateToKey(d);
+  }
+
+  // Only real calendar-day keys (skip goals:week:, goals:month:, goals:_rolledThru …)
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function listDateStrings() {
+    return storeListKeys('goals:')
+      .map(k => k.slice('goals:'.length))
+      .filter(s => DATE_RE.test(s));
+  }
+
+  // ---------- week / month keys ----------
+  function isoWeekString(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7;          // Mon=0 … Sun=6
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);    // nearest Thursday
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+    const week = 1 + Math.round(((date - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+    return date.getUTCFullYear() + '-W' + pad2(week);
+  }
+  function activeDate() {
+    const p = getActiveDateString().split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+  function weekKey()  { return 'goals:week:' + isoWeekString(activeDate()); }
+  function monthKey() { return 'goals:month:' + getActiveDateString().slice(0, 7); }
+
   function getGoals(key) {
     const g = storeGet(key);
     return Array.isArray(g) ? g : [];
   }
   function setGoals(key, list) { storeSet(key, list); }
 
-  // ---------- rollover: pull undone older goals into today ----------
+  // ---------- rollover: pull undone older goals into today (history kept) ----------
   function rollover() {
     const todayDateStr = getActiveDateString();
     const todayK = 'goals:' + todayDateStr;
     let today = getGoals(todayK);
     const texts = new Set(today.map(g => g.text));
+    const rolledThru = storeGet('goals:_rolledThru') || '';
+    let newThru = rolledThru;
 
-    storeListKeys('goals:').forEach(k => {
-      const dateStr = k.slice('goals:'.length);
+    listDateStrings().forEach(dateStr => {
       if (dateStr >= todayDateStr) return;
-      const old = getGoals(k);
-      old.forEach(g => {
+      if (dateStr > newThru) newThru = dateStr;
+      if (rolledThru && dateStr <= rolledThru) return;   // already carried forward once
+      getGoals('goals:' + dateStr).forEach(g => {
         if (!g.done && g.text && !texts.has(g.text)) {
           today.push({ text: g.text, done: false });
           texts.add(g.text);
         }
       });
-      storeDelete(k);
     });
     setGoals(todayK, today);
+    if (newThru && newThru !== rolledThru) storeSet('goals:_rolledThru', newThru);
   }
 
   // ---------- streak ----------
@@ -791,8 +921,7 @@ body::after {
   function processStreak() {
     const s = loadStreak();
     const todayDateStr = getActiveDateString();
-    const keys = storeListKeys('goals:')
-      .map(k => k.slice('goals:'.length))
+    const keys = listDateStrings()
       .filter(d => d < todayDateStr)
       .sort();
     keys.forEach(dateStr => {
@@ -1099,8 +1228,19 @@ body::after {
   }
 
   // ---------- Renderers ----------
+  function renderDailyDateNav() {
+    const today = getActiveDateString();
+    document.getElementById('dayDateNav').classList.toggle('is-today', isViewingToday());
+    document.getElementById('dayDateLabel').childNodes[0].nodeValue =
+      isViewingToday() ? 'Today' : formatDate(viewDate);
+    const picker = document.getElementById('dayDatePicker');
+    picker.value = viewDate;
+    picker.max = today;
+    document.getElementById('dayNext').disabled = viewDate >= today;
+  }
+
   function renderTodayHeader() {
-    const goals = getGoals(todayKey());
+    const goals = getGoals(viewKey());
     const total = goals.length;
     const done  = goals.filter(g => g.done).length;
     document.getElementById('gmProgressNum').textContent   = done;
@@ -1111,7 +1251,9 @@ body::after {
     else                     label.textContent = 'complete';
 
     document.getElementById('todayLabel').textContent =
-      'Today — ' + formatDate(getActiveDateString());
+      (isViewingToday() ? 'Today — ' : 'Editing — ') + formatDate(viewDate);
+
+    renderDailyDateNav();
 
     const bar = document.getElementById('gmBar');
     bar.innerHTML = '';
@@ -1125,7 +1267,7 @@ body::after {
     card.classList.toggle('gm-all-done', total > 0 && done === total);
 
     const pushBtn = document.getElementById('gmPushBtn');
-    pushBtn.style.display = (total > 0 && done < total) ? 'block' : 'none';
+    pushBtn.style.display = (isViewingToday() && total > 0 && done < total) ? 'block' : 'none';
   }
 
   function renderStreak() {
@@ -1144,7 +1286,7 @@ body::after {
   function renderListInto(goals, listEl, emptyEl, key, readOnly) {
     listEl.innerHTML = '';
     emptyEl.style.display = goals.length === 0 ? 'block' : 'none';
-    const reload = () => (key === todayKey() ? loadToday() : loadTomorrow());
+    const reload = () => (key === viewKey() ? loadToday() : loadTomorrow());
 
     const visible = goals.length > 5 ? goals.slice(0, 5) : goals;
     visible.forEach((g, i) => listEl.appendChild(buildGoalRow(g, i, key, readOnly, reload)));
@@ -1173,13 +1315,13 @@ body::after {
       listEl.appendChild(toggle);
     }
 
-    if (key === todayKey()) renderTodayHeader();
-    else                    renderTomorrowCount();
+    if (key === viewKey()) renderTodayHeader();
+    else                   renderTomorrowCount();
   }
 
   function loadToday() {
-    const goals = getGoals(todayKey());
-    renderListInto(goals, document.getElementById('goalList'), document.getElementById('emptyState'), todayKey(), false);
+    const goals = getGoals(viewKey());
+    renderListInto(goals, document.getElementById('goalList'), document.getElementById('emptyState'), viewKey(), false);
   }
   function loadTomorrow() {
     const goals = getGoals(tomorrowKey());
@@ -1238,10 +1380,12 @@ body::after {
   }
 
   function makeAddHandlers(input, addBtn, polishBtn, key, statusEl, reload) {
+    const resolveKey = (typeof key === 'function') ? key : () => key;
     function plainAdd(text) {
-      const list = getGoals(key);
+      const k = resolveKey();
+      const list = getGoals(k);
       list.push({ text, done: false });
-      setGoals(key, list);
+      setGoals(k, list);
       input.value = '';
       reload();
     }
@@ -1278,7 +1422,7 @@ body::after {
     document.getElementById('goalInput'),
     document.getElementById('goalAddBtn'),
     document.getElementById('goalPolishBtn'),
-    todayKey(),
+    viewKey,
     document.getElementById('polishStatus'),
     loadToday
   );
@@ -1286,16 +1430,194 @@ body::after {
     document.getElementById('tomorrowInput'),
     document.getElementById('tomorrowAddBtn'),
     document.getElementById('tomorrowPolishBtn'),
-    tomorrowKey(),
+    tomorrowKey,
     document.getElementById('tomorrowStatus'),
     loadTomorrow
   );
+
+  // ---------- Daily date navigator ----------
+  document.getElementById('dayPrev').addEventListener('click', () => {
+    viewDate = shiftDate(viewDate, -1); loadToday();
+  });
+  document.getElementById('dayNext').addEventListener('click', () => {
+    if (viewDate >= getActiveDateString()) return;
+    viewDate = shiftDate(viewDate, 1); loadToday();
+  });
+  document.getElementById('dayBackToday').addEventListener('click', () => {
+    viewDate = getActiveDateString(); loadToday();
+  });
+  document.getElementById('dayDatePicker').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    const today = getActiveDateString();
+    viewDate = e.target.value > today ? today : e.target.value;
+    loadToday();
+  });
+
+  // ---------- Weekly / monthly goals (checklist + counters) ----------
+  function periodProgress(list) {
+    let done = 0, total = 0;
+    list.forEach(g => {
+      const target = Math.max(1, g.target || 1);
+      total += target;
+      done  += Math.min(target, g.count || 0);
+    });
+    return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
+  }
+
+  function buildPeriodRow(goal, idx, key, reload) {
+    const li = document.createElement('li');
+    li.className = 'gm-row';
+    li.dataset.idx = String(idx);
+    const target = Math.max(1, goal.target || 1);
+    const count  = goal.count || 0;
+    const isDone = count >= target;
+    if (isDone) li.classList.add('gm-row-done');
+
+    const text = document.createElement('span');
+    text.className = 'gm-text';
+    text.textContent = goal.text;
+    li.appendChild(text);
+    makeInlineEdit(text, null, idx, key, reload);
+
+    if (target <= 1) {
+      // simple checkbox item
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'gm-check';
+      cb.checked = isDone;
+      cb.addEventListener('change', () => {
+        const list = getGoals(key);
+        if (!list[idx]) return;
+        list[idx].count = cb.checked ? 1 : 0;
+        setGoals(key, list);
+        reload();
+      });
+      li.insertBefore(cb, text);
+    } else {
+      // counter item: − count/target +
+      const counter = document.createElement('div');
+      counter.className = 'gm-counter';
+      const dec = document.createElement('button');
+      dec.type = 'button'; dec.className = 'gm-step'; dec.textContent = '−';
+      dec.disabled = count <= 0;
+      const num = document.createElement('span');
+      num.className = 'gm-count'; num.textContent = count + '/' + target;
+      const inc = document.createElement('button');
+      inc.type = 'button'; inc.className = 'gm-step'; inc.textContent = '+';
+      const step = (delta) => {
+        const list = getGoals(key);
+        if (!list[idx]) return;
+        list[idx].count = Math.max(0, Math.min(target, (list[idx].count || 0) + delta));
+        setGoals(key, list);
+        reload();
+      };
+      dec.addEventListener('click', () => step(-1));
+      inc.addEventListener('click', () => step(1));
+      counter.appendChild(dec); counter.appendChild(num); counter.appendChild(inc);
+      li.appendChild(counter);
+    }
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'goal-delete';
+    del.setAttribute('aria-label', 'Delete goal');
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      const list = getGoals(key);
+      list.splice(idx, 1);
+      setGoals(key, list);
+      reload();
+    });
+    li.appendChild(del);
+    return li;
+  }
+
+  function renderPeriod(key, listElId, emptyElId, numElId, barElId, reload) {
+    const list = getGoals(key);
+    const listEl = document.getElementById(listElId);
+    listEl.innerHTML = '';
+    document.getElementById(emptyElId).style.display = list.length === 0 ? 'block' : 'none';
+    list.forEach((g, i) => listEl.appendChild(buildPeriodRow(g, i, key, reload)));
+    const p = periodProgress(list);
+    document.getElementById(numElId).textContent = p.pct;
+    document.getElementById(barElId).style.width = p.pct + '%';
+  }
+
+  function loadWeek()  { renderPeriod(weekKey(),  'weekList',  'weekEmpty',  'weekPctNum',  'weekBarFill',  loadWeek); }
+  function loadMonth() { renderPeriod(monthKey(), 'monthList', 'monthEmpty', 'monthPctNum', 'monthBarFill', loadMonth); }
+
+  function makePeriodAdd(input, targetInput, addBtn, keyFn, reload) {
+    function add() {
+      const text = input.value.trim();
+      if (!text) return;
+      const t = parseInt(targetInput.value, 10);
+      const target = (!isNaN(t) && t > 1) ? t : 1;
+      const list = getGoals(keyFn());
+      list.push({ text, target, count: 0 });
+      setGoals(keyFn(), list);
+      input.value = ''; targetInput.value = '';
+      reload();
+    }
+    addBtn.addEventListener('click', add);
+    [input, targetInput].forEach(el => el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); add(); }
+    }));
+  }
+  makePeriodAdd(
+    document.getElementById('weekInput'), document.getElementById('weekTarget'),
+    document.getElementById('weekAddBtn'), weekKey, loadWeek
+  );
+  makePeriodAdd(
+    document.getElementById('monthInput'), document.getElementById('monthTarget'),
+    document.getElementById('monthAddBtn'), monthKey, loadMonth
+  );
+  document.getElementById('weekLabel').textContent  = 'This week';
+  document.getElementById('monthLabel').textContent =
+    'This month — ' + ['January','February','March','April','May','June','July','August','September','October','November','December'][activeDate().getMonth()];
+
+  // ---------- Archive ----------
+  function renderArchive() {
+    const today = getActiveDateString();
+    const dates = listDateStrings().filter(d => d < today).sort().reverse();
+    const listEl = document.getElementById('archiveList');
+    const emptyEl = document.getElementById('archiveEmpty');
+    listEl.innerHTML = '';
+    emptyEl.style.display = dates.length === 0 ? 'block' : 'none';
+    dates.forEach(dateStr => {
+      const goals = getGoals('goals:' + dateStr);
+      const total = goals.length;
+      const done  = goals.filter(g => g.done).length;
+      const pct   = total === 0 ? 0 : Math.round((done / total) * 100);
+      const allDone = total > 0 && done === total;
+
+      const li = document.createElement('li');
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'arch-row';
+      row.innerHTML =
+        '<span class="arch-date">' + formatDate(dateStr) + '</span>' +
+        '<span class="arch-bar-wrap"><span class="arch-bar-fill' + (allDone ? '' : ' miss') +
+          '" style="width:' + pct + '%"></span></span>' +
+        '<span class="arch-count">' + done + '/' + total + '</span>' +
+        '<span class="arch-check">' + (allDone ? '✓' : '') + '</span>';
+      row.addEventListener('click', () => {
+        viewDate = dateStr;
+        loadToday();
+        document.getElementById('gmCardToday').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      li.appendChild(row);
+      listEl.appendChild(li);
+    });
+  }
 
   // ---------- Boot ----------
   rollover();
   processStreak();
   loadToday();
   loadTomorrow();
+  loadWeek();
+  loadMonth();
+  renderArchive();
   renderStreak();
   updateDayRing();
   setInterval(updateDayRing, 60 * 1000);
@@ -1303,7 +1625,7 @@ body::after {
 
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', () => {
-    loadToday(); loadTomorrow(); renderStreak();
+    loadToday(); loadTomorrow(); loadWeek(); loadMonth(); renderArchive(); renderStreak();
   });
 })();
 </script>

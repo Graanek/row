@@ -33,7 +33,11 @@ const CONFIG = {
   days: [
     { id: "push", name: "Push" },
     { id: "pull", name: "Pull" },
-    { id: "legs", name: "Legs" }
+    { id: "legs", name: "Legs" },
+    { id: "chest", name: "Chest" },
+    { id: "shoulders", name: "Shoulders" },
+    { id: "arms", name: "Arms" },
+    { id: "calisthenics", name: "Calisthenics" }
   ],
 
   // Split rotation — the order your training days cycle through. Use day
@@ -86,7 +90,30 @@ const CONFIG = {
     { name: "Bicep curl",      gym: "comm", day: "pull", repMin: 8, repMax: 12, step: 1.25,startWeight: 15 },
     { name: "Back squat",      gym: "comm", day: "legs", repMin: 5, repMax: 8,  step: 5,   startWeight: 80 },
     { name: "Romanian deadlift", gym: "comm", day: "legs", repMin: 6, repMax: 10, step: 5, startWeight: 60 },
-    { name: "Leg press",       gym: "comm", day: "legs", repMin: 8, repMax: 12, step: 5,   startWeight: 100 }
+    { name: "Leg press",       gym: "comm", day: "legs", repMin: 8, repMax: 12, step: 5,   startWeight: 100 },
+
+    // Chest
+    { name: "Incline dumbbell press", gym: "both", day: "chest", repMin: 6, repMax: 10, step: 2,    startWeight: 20 },
+    { name: "Cable fly",              gym: "comm", day: "chest", repMin: 10, repMax: 15, step: 2.5, startWeight: 10 },
+    { name: "Chest dip",              gym: "both", day: "chest", repMin: 6, repMax: 12, step: 1,    startWeight: 0, bw: true },
+
+    // Shoulders
+    { name: "Lateral raise",   gym: "both", day: "shoulders", repMin: 10, repMax: 15, step: 1,    startWeight: 8 },
+    { name: "Arnold press",    gym: "both", day: "shoulders", repMin: 6,  repMax: 10, step: 2,    startWeight: 15 },
+    { name: "Face pull",       gym: "comm", day: "shoulders", repMin: 12, repMax: 20, step: 2.5,  startWeight: 15 },
+
+    // Arms
+    { name: "Barbell curl",       gym: "comm", day: "arms", repMin: 8,  repMax: 12, step: 1.25, startWeight: 20 },
+    { name: "Hammer curl",        gym: "both", day: "arms", repMin: 8,  repMax: 12, step: 1,    startWeight: 12 },
+    { name: "Skull crusher",      gym: "comm", day: "arms", repMin: 8,  repMax: 12, step: 1.25, startWeight: 20 },
+    { name: "Tricep pushdown",    gym: "comm", day: "arms", repMin: 10, repMax: 15, step: 2.5,  startWeight: 25 },
+
+    // Calisthenics (bodyweight — logs reps only)
+    { name: "Push-ups",          gym: "both", day: "calisthenics", repMin: 10, repMax: 25, step: 1, startWeight: 0, bw: true },
+    { name: "Pull-ups",          gym: "both", day: "calisthenics", repMin: 5,  repMax: 12, step: 1, startWeight: 0, bw: true },
+    { name: "Dips",              gym: "both", day: "calisthenics", repMin: 8,  repMax: 15, step: 1, startWeight: 0, bw: true },
+    { name: "Pistol squat",      gym: "both", day: "calisthenics", repMin: 3,  repMax: 8,  step: 1, startWeight: 0, bw: true },
+    { name: "Hanging leg raise", gym: "both", day: "calisthenics", repMin: 8,  repMax: 15, step: 1, startWeight: 0, bw: true }
   ]
 };
 </script>
@@ -386,6 +413,15 @@ img, video, canvas, svg { max-width: 100%; }
 .po-field input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none; margin: 0;
 }
+.po-log-date-field { margin-bottom: 14px; }
+.po-log-date-field.is-today > label { color: var(--text-3); }
+.po-log-date-field:not(.is-today) > label { color: #F2C063; }
+.po-log-date {
+  padding: 12px; border: 1px solid var(--border);
+  background: rgba(0,0,0,0.28); color: var(--text-1);
+  border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 700;
+}
+.po-log-date-field:not(.is-today) .po-log-date { border-color: rgba(242,192,99,0.4); }
 .po-field input:focus {
   outline: none; border-color: rgba(255,255,255,0.40);
   box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
@@ -1500,6 +1536,10 @@ img, video, canvas, svg { max-width: 100%; }
           </div>
         </div>
       </div>
+      <div class="po-field po-log-date-field is-today" id="logDateField">
+        <label for="logDate">Logging for</label>
+        <input type="date" id="logDate" class="po-log-date">
+      </div>
       <button class="po-btn-primary" id="logBtn">Log set</button>
     </div>
 
@@ -1742,12 +1782,34 @@ img, video, canvas, svg { max-width: 100%; }
         index: idx
       };
     }
+
+    // One-time: bring in newer training categories (chest/shoulders/arms/
+    // calisthenics) and their starter exercises for users who already had
+    // saved data. Idempotent — only adds what's missing, never duplicates
+    // or touches push/pull/legs the user may have customized.
+    const CAT_MIGRATION = 2;
+    if ((s._catMigration || 0) < CAT_MIGRATION) {
+      const NEW_DAY_IDS = ['chest', 'shoulders', 'arms', 'calisthenics'];
+      (CONFIG.days || []).forEach(cd => {
+        if (!s.days.find(d => d.id === cd.id)) s.days.push({ id: cd.id, name: cd.name });
+      });
+      NEW_DAY_IDS.forEach(dayId => {
+        if (s.exercises.some(x => x.day === dayId)) return;   // already has some — leave alone
+        (CONFIG.defaultExercises || []).filter(e => e.day === dayId).forEach((e, i) => {
+          s.exercises.push(Object.assign({ id: 'seed_' + dayId + '_' + i + '_' + Date.now() }, e));
+        });
+      });
+      s._catMigration = CAT_MIGRATION;
+      _didCatMigrate = true;
+    }
     return s;
   }
+  let _didCatMigrate = false;
   function saveState() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   }
   let state = loadState();
+  if (_didCatMigrate) saveState();   // persist the new categories so the flag sticks
   document.getElementById('appTitle').textContent = CONFIG.appTitle || 'Progressive Overload Coach';
 
   // ============================================================
@@ -2271,6 +2333,29 @@ img, video, canvas, svg { max-width: 100%; }
     p.classList.add('active');
     $('repsRow').dataset.value = p.dataset.v;
   });
+  // ----- Log date (default today, lets you backfill a missed workout) -----
+  function logTodayStr() { return new Date().toISOString().slice(0, 10); }
+  function chosenLogISO() {
+    const v = $('logDate').value;
+    if (!v || v === logTodayStr()) return new Date().toISOString();
+    const p = v.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2], 12, 0, 0).toISOString();   // noon local on that day
+  }
+  function refreshLogDateField() {
+    const today = logTodayStr();
+    const inp = $('logDate');
+    inp.max = today;
+    if (!inp.value) inp.value = today;
+    $('logDateField').classList.toggle('is-today', inp.value === today);
+  }
+  $('logDate').value = logTodayStr();
+  $('logDate').addEventListener('change', () => {
+    const today = logTodayStr();
+    if ($('logDate').value > today) $('logDate').value = today;
+    refreshLogDateField();
+  });
+  refreshLogDateField();
+
   $('logBtn').addEventListener('click', () => {
     const ex = getCurrentEx();
     if (!ex) return;
@@ -2279,7 +2364,10 @@ img, video, canvas, svg { max-width: 100%; }
     const w = ex.bw ? 0 : (parseFloat($('weightInput').value) || 0);
     if (!ex.bw && w <= 0) { alert('Enter a weight.'); return; }
     const arr = state.logs[ex.id] || [];
-    arr.push({ weight: w, reps: reps, date: new Date().toISOString() });
+    arr.push({ weight: w, reps: reps, date: chosenLogISO() });
+    // Keep each exercise's log ordered by date so charts/last-set stay correct
+    // even when backfilling a missed workout.
+    arr.sort((a, b) => new Date(a.date) - new Date(b.date));
     state.logs[ex.id] = arr;
     saveState(); renderAll();
     // Strength changed → composition estimate may shift

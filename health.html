@@ -476,6 +476,17 @@ main {
   .stack-search-results { width: 100%; }
 }
 
+/* ----- Shared date navigator ----- */
+.date-nav { display:flex; align-items:center; justify-content:center; gap:10px; margin:0 0 16px; }
+.date-nav-btn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.04); color:var(--text-secondary,#B8B6B0); border-radius:10px; font-size:18px; line-height:1; cursor:pointer; transition:background .15s,color .15s,opacity .15s; }
+.date-nav-btn:hover:not(:disabled){ background:rgba(255,255,255,0.08); color:#fff; }
+.date-nav-btn:disabled{ opacity:.25; cursor:default; }
+.date-nav-label{ position:relative; min-width:160px; text-align:center; }
+.date-nav-date{ position:relative; display:inline-block; font-size:14px; font-weight:700; color:var(--text-primary,#FAFAFA); cursor:pointer; }
+.date-nav-date input{ position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.date-nav-back{ display:block; margin:2px auto 0; border:0; background:transparent; color:#F2C063; font-size:9.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
+.date-nav.is-today .date-nav-back{ visibility:hidden; }
+
 ::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -495,6 +506,15 @@ main {
       <span class="stack-ticker-sep">·</span>
       <span class="stack-ticker-msg" id="stackTickerMsg">All caught up — keep it rolling</span>
       <span class="stack-ticker-count" id="stackTickerCount">0/0</span>
+    </div>
+
+    <div class="date-nav is-today" id="stackDateNav">
+      <button class="date-nav-btn" id="stackPrevDay" aria-label="Previous day">‹</button>
+      <div class="date-nav-label">
+        <span class="date-nav-date" id="stackDateLabel">Today<input type="date" id="stackDatePicker" aria-label="Pick a date"></span>
+        <button class="date-nav-back" id="stackBackToday">Back to today</button>
+      </div>
+      <button class="date-nav-btn" id="stackNextDay" aria-label="Next day">›</button>
     </div>
 
     <div class="stack-head">
@@ -527,16 +547,6 @@ main {
       </div>
     </div>
   </div>
-
-  <section id="water" class="water-embed">
-    <div class="section-title">Water Tracker</div>
-    <iframe src="po-water.html" class="water-iframe" loading="lazy" title="Water Tracker"></iframe>
-  </section>
-
-  <section id="water" class="water-embed">
-    <div class="section-title">Water Tracker</div>
-    <iframe src="po-water.html" class="water-iframe" loading="lazy" title="Water Tracker"></iframe>
-  </section>
 
   <div class="attribution">// editable template · all data stays in your browser</div>
 </main>
@@ -655,7 +665,34 @@ main {
     { name: 'Chaga', dose: '1–2g', window: 'morning', note: 'Antioxidant and immune', icon: '🍄', aliases: ['chaga'] },
   ];
 
-  let todayKey = `stack:taken:${getActiveDate()}`;
+  // ---- Date navigation (default today, can go back to edit a missed day) ----
+  let viewDate = getActiveDate();
+  function isViewingToday() { return viewDate === getActiveDate(); }
+  function takenKey() { return `stack:taken:${viewDate}`; }
+  function shiftDate(dateStr, days) {
+    const p = dateStr.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+  function niceDate(dateStr) {
+    if (dateStr === getActiveDate()) return 'Today';
+    const p = dateStr.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    const wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return `${wk}, ${mo} ${d.getDate()}`;
+  }
+  function renderDateNav() {
+    const nav = document.getElementById('stackDateNav');
+    const today = getActiveDate();
+    nav.classList.toggle('is-today', viewDate === today);
+    document.getElementById('stackDateLabel').childNodes[0].nodeValue = niceDate(viewDate);
+    document.getElementById('stackDatePicker').value = viewDate;
+    document.getElementById('stackDatePicker').max = today;
+    document.getElementById('stackNextDay').disabled = viewDate >= today;
+  }
 
   function getItems() {
     const storedVersion = storeGet('stack:version');
@@ -669,8 +706,8 @@ main {
     return stored;
   }
   function setItems(items) { storeSet('stack:items', items); }
-  function getTaken() { return storeGet(todayKey) || {}; }
-  function setTaken(map) { storeSet(todayKey, map); }
+  function getTaken() { return storeGet(takenKey()) || {}; }
+  function setTaken(map) { storeSet(takenKey(), map); }
   function getLow() { return storeGet('stack:low') || []; }
   function setLow(arr) { storeSet('stack:low', arr); }
 
@@ -722,8 +759,10 @@ main {
     const low = getLow();
     const totalCount = items.length;
     const takenCount = items.filter(i => taken[i.id]).length;
-    document.getElementById('stackProgressText').textContent =
-      `${takenCount} / ${totalCount} taken today · resets at 6 AM`;
+    renderDateNav();
+    document.getElementById('stackProgressText').textContent = isViewingToday()
+      ? `${takenCount} / ${totalCount} taken today · resets at 6 AM`
+      : `${takenCount} / ${totalCount} taken · ${niceDate(viewDate)}`;
     const pct = totalCount === 0 ? 0 : (takenCount / totalCount) * 100;
     document.getElementById('stackProgressBar').style.width = pct + '%';
 
@@ -746,7 +785,7 @@ main {
           <span class="stack-window-time">${win.time}</span>
         </div>`;
 
-      const isPastCutoff = win.cutoffHour !== null && nowHour > win.cutoffHour;
+      const isPastCutoff = isViewingToday() && win.cutoffHour !== null && nowHour > win.cutoffHour;
 
       winItems.forEach(item => {
         const isTaken = !!taken[item.id];
@@ -802,7 +841,7 @@ main {
 
     items.forEach(item => {
       const win = STACK_WINDOWS.find(w => w.key === (item.window || 'anytime'));
-      const isPastCutoff = win && win.cutoffHour !== null && nowHour > win.cutoffHour;
+      const isPastCutoff = isViewingToday() && win && win.cutoffHour !== null && nowHour > win.cutoffHour;
       const isTaken = !!taken[item.id];
       if (isPastCutoff && !isTaken) {
         missed.push({
@@ -1046,9 +1085,32 @@ main {
     });
   });
 
+  // ---- Date navigator wiring ----
+  document.getElementById('stackPrevDay').addEventListener('click', () => {
+    viewDate = shiftDate(viewDate, -1); render();
+  });
+  document.getElementById('stackNextDay').addEventListener('click', () => {
+    if (viewDate >= getActiveDate()) return;
+    viewDate = shiftDate(viewDate, 1); render();
+  });
+  document.getElementById('stackBackToday').addEventListener('click', () => {
+    viewDate = getActiveDate(); render();
+  });
+  document.getElementById('stackDatePicker').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    const today = getActiveDate();
+    viewDate = e.target.value > today ? today : e.target.value;
+    render();
+  });
+
+  let lastActive = getActiveDate();
   setInterval(() => {
-    const newKey = `stack:taken:${getActiveDate()}`;
-    if (newKey !== todayKey) todayKey = newKey;
+    const active = getActiveDate();
+    if (active !== lastActive) {
+      // Day rolled over (6 AM). Follow it only if we were on the current day.
+      if (viewDate === lastActive) viewDate = active;
+      lastActive = active;
+    }
     render();
   }, 60 * 1000);
 
@@ -1062,7 +1124,7 @@ main {
     if (typeof initCloudSync !== 'function') return;
     initCloudSync({
       appKey: 'health',
-      syncedKeys: ['stack:items', 'stack:version', 'stack:low', 'po_water_v1'],
+      syncedKeys: ['stack:items', 'stack:version', 'stack:low'],
       syncedPrefixes: ['stack:taken:'],
       onApplied: function () { window.dispatchEvent(new Event('storage')); }
     });

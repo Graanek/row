@@ -101,6 +101,17 @@ html, body {
 }
 .day-pill .day-sep { color: var(--text-4); }
 
+/* ----- Date navigator ----- */
+.date-nav { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
+.date-nav-btn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text-2); border-radius:10px; font-size:17px; line-height:1; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:background .15s,color .15s,opacity .15s; }
+.date-nav-btn:hover:not(:disabled){ background:rgba(255,255,255,0.09); color:var(--text-1); }
+.date-nav-btn:disabled{ opacity:.25; cursor:default; }
+.date-nav-label{ position:relative; min-width:150px; text-align:center; }
+.date-nav-date{ position:relative; display:inline-block; font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-1); cursor:pointer; }
+.date-nav-date input{ position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.date-nav-back{ display:block; margin:2px auto 0; border:0; background:transparent; color:var(--accent,#5BC8F5); font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
+.date-nav.is-today .date-nav-back{ visibility:hidden; }
+
 .header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 18px;
@@ -462,9 +473,14 @@ html, body {
 
 <div class="shell">
 
-  <button class="day-pill" id="dayPill" type="button">
-    <span id="dayPillLabel">—</span>
-  </button>
+  <div class="date-nav is-today" id="waterDateNav">
+    <button class="date-nav-btn" id="waterPrevDay" type="button" aria-label="Previous day">‹</button>
+    <div class="date-nav-label">
+      <span class="date-nav-date" id="dayPillLabel">—<input type="date" id="waterDatePicker" aria-label="Pick a date"></span>
+      <button class="date-nav-back" id="waterBackToday" type="button">Back to today</button>
+    </div>
+    <button class="date-nav-btn" id="waterNextDay" type="button" aria-label="Next day">›</button>
+  </div>
 
   <div class="header">
     <h1 class="title" id="appTitle">Water Coach</h1>
@@ -715,12 +731,21 @@ html, body {
   function dateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
-  function todayKey() { return dateKey(new Date()); }
-  function todayCount() { return state.logs[todayKey()] || 0; }
+  function realTodayKey() { return dateKey(new Date()); }
+  // The day currently being viewed/edited (default today, can go back to fix a missed day).
+  let viewDate = realTodayKey();
+  function isViewingToday() { return viewDate === realTodayKey(); }
+  function shiftDate(dateStr, days) {
+    const p = dateStr.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    d.setDate(d.getDate() + days);
+    return dateKey(d);
+  }
+  function todayKey() { return viewDate; }
+  function todayCount() { return state.logs[viewDate] || 0; }
   function setTodayCount(n) {
-    const k = todayKey();
-    if (n <= 0) delete state.logs[k];
-    else state.logs[k] = n;
+    if (n <= 0) delete state.logs[viewDate];
+    else state.logs[viewDate] = n;
     saveState();
   }
 
@@ -776,10 +801,19 @@ html, body {
   // RENDER
   // ============================================================
   function renderDayPill() {
-    const d = new Date();
     const dows = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
     const mons = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    $('dayPillLabel').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+    const p = viewDate.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    const today = realTodayKey();
+    const label = isViewingToday()
+      ? 'TODAY · ' + dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate()
+      : dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+    $('dayPillLabel').childNodes[0].nodeValue = label;
+    $('waterDateNav').classList.toggle('is-today', isViewingToday());
+    $('waterDatePicker').value = viewDate;
+    $('waterDatePicker').max = today;
+    $('waterNextDay').disabled = viewDate >= today;
   }
 
   function renderWater() {
@@ -788,7 +822,7 @@ html, body {
     const count = todayCount();
     const unitName = unitLabelPlural();
 
-    $('waterUnitLabel').textContent = unitName.toUpperCase() + ' DRANK TODAY';
+    $('waterUnitLabel').textContent = unitName.toUpperCase() + (isViewingToday() ? ' DRANK TODAY' : ' DRANK');
     $('waterNum').textContent = count;
     $('waterTarget').textContent = '/ ' + targetUnits;
     $('waterPlusLabel').textContent = 'Drank a ' + unitLabelSingular();
@@ -908,6 +942,20 @@ html, body {
   $('waterMinusBtn').addEventListener('click', () => {
     setTodayCount(Math.max(0, todayCount() - 1));
     renderWater();
+  });
+
+  // ---- Date navigator ----
+  $('waterPrevDay').addEventListener('click', () => { viewDate = shiftDate(viewDate, -1); renderAll(); });
+  $('waterNextDay').addEventListener('click', () => {
+    if (viewDate >= realTodayKey()) return;
+    viewDate = shiftDate(viewDate, 1); renderAll();
+  });
+  $('waterBackToday').addEventListener('click', () => { viewDate = realTodayKey(); renderAll(); });
+  $('waterDatePicker').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    const today = realTodayKey();
+    viewDate = e.target.value > today ? today : e.target.value;
+    renderAll();
   });
 
   $('whyToggle').addEventListener('click', () => {
@@ -1120,8 +1168,9 @@ html, body {
     try { if (window.self !== window.top) return; } catch (e) { return; }
     if (typeof initCloudSync !== 'function') return;
     initCloudSync({
-      appKey: 'health',
+      appKey: 'water',
       syncedKeys: ['po_water_v1'],
+      syncedPrefixes: ['po_water:'],
       onApplied: function () { window.dispatchEvent(new Event('storage')); }
     });
   });
