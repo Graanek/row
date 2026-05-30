@@ -1165,7 +1165,6 @@ html, body {
 
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    try { if (window.self !== window.top) return; } catch (e) { return; }
     if (typeof initCloudSync !== 'function') return;
     initCloudSync({
       appKey: 'water',
