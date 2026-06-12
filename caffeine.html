@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
+<title>Caffeine</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="lock.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<style>
+:root {
+  --bg: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-secondary: rgba(255, 255, 255, 0.035);
+  --bg-input: rgba(0, 0, 0, 0.28);
+  --bg-input-focus: rgba(0, 0, 0, 0.36);
+  --bg-dropdown: rgba(15, 15, 18, 0.97);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+
+  --accent: #C9A36B;
+  --accent-glow: rgba(201, 163, 107, 0.30);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+
+  --glass-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+*::-webkit-scrollbar { display: none; }
+body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
+body::before {
+  content: ''; position: fixed; inset: -10%;
+  z-index: -2;
+  background:
+    radial-gradient(60% 45% at 80% 12%, rgba(201, 163, 107, 0.18) 0%, transparent 55%),
+    radial-gradient(50% 40% at 18% 88%, rgba(180, 140, 80, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes drift { 0% { transform: translate(0,0); } 100% { transform: translate(-2%, 2%); } }
+
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: max(56px, env(safe-area-inset-top, 56px)) 16px 100px;
+}
+
+/* ===== Back button ===== */
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  margin-bottom: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.02em; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.back-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+
+/* ===== Page title ===== */
+.dash-title {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  margin-bottom: 22px;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+/* ===== Section title ===== */
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+/* ===== Glass card ===== */
+.gm-card {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+.gm-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 14px; right: 14px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.13), transparent);
+  pointer-events: none;
+}
+
+/* ===== Score ring ===== */
+.score-row {
+  display: flex; align-items: center; gap: 20px;
+  margin-bottom: 16px;
+}
+.ring-wrap {
+  position: relative; flex-shrink: 0;
+  width: 96px; height: 96px;
+  cursor: default;
+}
+.ring-wrap svg { display: block; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 7; }
+.ring-fill  {
+  fill: none; stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.22,1,0.36,1), stroke 0.4s;
+}
+.ring-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1px;
+}
+.ring-score {
+  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em; color: var(--text-primary); line-height: 1;
+}
+.ring-state {
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.score-info { flex: 1; min-width: 0; }
+.score-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 4px;
+}
+.score-label {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text-primary); line-height: 1.1; margin-bottom: 4px;
+}
+.score-hint {
+  font-size: 11.5px; color: var(--text-tertiary);
+}
+
+/* ===== Curve chart ===== */
+.curve-wrap {
+  position: relative;
+  height: 140px;
+  margin-bottom: 10px;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.curve-wrap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.chart-toggle {
+  display: flex; gap: 4px;
+  margin-bottom: 10px;
+}
+.chart-toggle button {
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.chart-toggle button.active {
+  background: rgba(201,163,107,0.12);
+  border-color: rgba(201,163,107,0.35);
+  color: var(--accent);
+}
+.chart-toggle button:hover:not(.active) {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+}
+
+.footer-band {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 8px; margin-top: 14px;
+}
+.footer-item {
+  background: var(--bg-secondary);
+  border-radius: 10px; padding: 10px 12px;
+}
+.footer-item-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 4px;
+}
+.footer-item-val {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-primary); line-height: 1.2;
+}
+@media (max-width: 480px) {
+  .footer-band { grid-template-columns: repeat(2,1fr); }
+}
+
+/* ===== Smart Timing tiles ===== */
+.timing-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 10px; margin-bottom: 14px;
+}
+@media (max-width: 520px) { .timing-grid { grid-template-columns: 1fr; } }
+.timing-tile {
+  background: var(--bg-secondary);
+  border-radius: 12px; padding: 14px 14px 12px;
+  position: relative; overflow: hidden;
+}
+.timing-tile::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%);
+  pointer-events: none; border-radius: inherit;
+}
+.timing-icon { font-size: 18px; margin-bottom: 6px; }
+.timing-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 6px;
+}
+.timing-val {
+  font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text-primary); margin-bottom: 2px; line-height: 1.2;
+}
+.timing-sub { font-size: 11.5px; color: var(--text-tertiary); }
+
+.tips-list { list-style: none; padding: 0; }
+.tips-list li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px; color: var(--text-secondary);
+  line-height: 1.45;
+}
+.tips-list li:last-child { border-bottom: none; }
+.tip-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex-shrink: 0; margin-top: 7px;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ===== Daily mg bar ===== */
+.mg-bar-wrap { margin-bottom: 16px; }
+.mg-bar-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.mg-bar-val {
+  font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em; color: var(--text-primary); line-height: 1;
+}
+.mg-bar-limit { font-size: 13px; color: var(--text-tertiary); }
+.mg-bar-track {
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px; overflow: hidden;
+  margin-bottom: 6px;
+}
+.mg-bar-fill {
+  height: 100%; border-radius: 999px;
+  transition: width 0.5s cubic-bezier(0.22,1,0.36,1), background 0.4s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.mg-active-note {
+  font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px;
+}
+.mg-personal-note {
+  background: var(--bg-secondary);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+}
+
+/* ===== Log search ===== */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-input {
+  width: 100%; padding: 11px 14px 11px 36px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: var(--font); font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-appearance: none;
+}
+.search-input:focus {
+  background: var(--bg-input-focus);
+  border-color: rgba(201,163,107,0.35);
+}
+.search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; pointer-events: none; opacity: 0.5;
+}
+.drink-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
+  gap: 6px; max-height: 280px; overflow-y: auto;
+  padding: 2px 0;
+}
+.drink-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer; text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  font-family: var(--font);
+}
+.drink-btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(201,163,107,0.2); }
+.drink-btn:active { background: rgba(201,163,107,0.1); }
+.drink-emoji { font-size: 16px; }
+.drink-name { font-size: 12px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.drink-mg { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+
+.custom-row {
+  display: flex; gap: 8px; margin-top: 12px;
+  align-items: stretch;
+}
+.custom-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary); font-family: var(--font); font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+.custom-input:focus { border-color: rgba(201,163,107,0.35); }
+.custom-input::placeholder { color: var(--text-quaternary); }
+.custom-mg { width: 72px; }
+.custom-add-btn {
+  padding: 10px 14px;
+  background: rgba(201,163,107,0.12);
+  border: 1px solid rgba(201,163,107,0.25);
+  border-radius: 8px;
+  color: var(--accent); font-family: var(--font); font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.custom-add-btn:hover { background: rgba(201,163,107,0.20); }
+
+/* ===== Logged today ===== */
+.log-list { display: flex; flex-direction: column; gap: 8px; }
+.log-item {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.log-item:hover { border-color: var(--border-soft); }
+.log-emoji { font-size: 20px; text-align: center; }
+.log-body { min-width: 0; }
+.log-name {
+  font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;
+}
+.log-mg-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  padding: 1px 7px; border-radius: 99px;
+  background: rgba(201,163,107,0.12); color: var(--accent);
+  margin-right: 6px;
+}
+.log-times { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.log-del-btn {
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text-tertiary);
+  cursor: pointer; font-size: 14px; line-height: 1;
+  padding: 5px 8px; flex-shrink: 0;
+  transition: all 0.15s; font-family: inherit;
+}
+.log-del-btn:hover { border-color: rgba(255,107,107,0.4); color: var(--danger); }
+
+.log-empty {
+  text-align: center; padding: 28px 0;
+  color: var(--text-tertiary); font-size: 13px;
+}
+
+/* ===== Scrub tooltip ===== */
+.scrub-tip {
+  position: absolute;
+  background: rgba(15,15,18,0.95);
+  border: 1px solid rgba(201,163,107,0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px; font-weight: 600; color: var(--text-primary);
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: none;
+}
+
+/* ===== section spacing ===== */
+.section { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back-btn" href="index.html">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+    Dashboard
+  </a>
+
+  <h1 class="dash-title">☕ Caffeine</h1>
+
+  <!-- ===== 1. YOUR DAY ===== -->
+  <div class="section">
+    <div class="section-title">Your Day</div>
+    <div class="gm-card">
+      <div class="score-row">
+        <div class="ring-wrap" id="ringWrap">
+          <svg width="96" height="96" viewBox="0 0 96 96">
+            <circle class="ring-track" cx="48" cy="48" r="40"/>
+            <circle class="ring-fill" id="ringFill" cx="48" cy="48" r="40"
+              stroke-dasharray="251.33"
+              stroke-dashoffset="251.33"/>
+          </svg>
+          <div class="ring-label">
+            <span class="ring-score" id="ringScore">—</span>
+            <span class="ring-state" id="ringState">—</span>
+          </div>
+        </div>
+        <div class="score-info">
+          <div class="score-eyebrow">RIGHT NOW</div>
+          <div class="score-label" id="scoreLabel">—</div>
+          <div class="score-hint">Hover or drag the curve</div>
+        </div>
+      </div>
+
+      <div class="chart-toggle">
+        <button id="btnLine" class="active" onclick="setChartMode('line')">LINE</button>
+        <button id="btnBars" onclick="setChartMode('bars')">BARS</button>
+        <button id="btnStack" onclick="setChartMode('stack')">STACK</button>
+      </div>
+
+      <div class="curve-wrap" id="curveWrap">
+        <svg id="curveSvg" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#C9A36B" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#C9A36B" stop-opacity="0.02"/>
+            </linearGradient>
+            <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#76746E" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#76746E" stop-opacity="0.02"/>
+            </linearGradient>
+            <clipPath id="chartClip">
+              <rect id="clipRect" x="0" y="0" width="100%" height="100%"/>
+            </clipPath>
+          </defs>
+          <!-- night shading left / right, baseline area, caffeine area, lines drawn by JS -->
+          <g id="chartNight"></g>
+          <g id="chartStack"></g>
+          <g id="chartLine"></g>
+          <g id="chartBars"></g>
+          <g id="chartNow"></g>
+          <g id="chartHover"></g>
+        </svg>
+        <div class="scrub-tip" id="scrubTip"></div>
+      </div>
+
+      <div class="footer-band">
+        <div class="footer-item">
+          <div class="footer-item-label">Peak Focus</div>
+          <div class="footer-item-val" id="ftPeak">—</div>
+        </div>
+        <div class="footer-item">
+          <div class="footer-item-label">Predicted Crash</div>
+          <div class="footer-item-val" id="ftCrash">—</div>
+        </div>
+        <div class="footer-item">
+          <div class="footer-item-label">Last Coffee By</div>
+          <div class="footer-item-val" id="ftCutoff">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 2. SMART TIMING ===== -->
+  <div class="section">
+    <div class="section-title">Smart Timing</div>
+    <div class="gm-card">
+      <div class="timing-grid">
+        <div class="timing-tile">
+          <div class="timing-icon">🎯</div>
+          <div class="timing-label">Most Productive</div>
+          <div class="timing-val" id="stPeakTime">—</div>
+          <div class="timing-sub" id="stPeakSub">—</div>
+        </div>
+        <div class="timing-tile">
+          <div class="timing-icon">📉</div>
+          <div class="timing-label">You'll Crash</div>
+          <div class="timing-val" id="stCrashTime">—</div>
+          <div class="timing-sub" id="stCrashSub">—</div>
+        </div>
+        <div class="timing-tile">
+          <div class="timing-icon">🚫</div>
+          <div class="timing-label">Coffee Cutoff</div>
+          <div class="timing-val" id="stCutoff">—</div>
+          <div class="timing-sub" id="stCutoffSub">—</div>
+        </div>
+      </div>
+      <ul class="tips-list" id="tipsList"></ul>
+    </div>
+  </div>
+
+  <!-- ===== 3. TODAY ===== -->
+  <div class="section">
+    <div class="section-title">Today</div>
+    <div class="gm-card">
+      <div class="mg-bar-wrap">
+        <div class="mg-bar-header">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:4px">CONSUMED TODAY</div>
+            <div class="mg-bar-val"><span id="todayMg">0</span> <span style="font-size:15px;font-weight:500;color:var(--text-tertiary)">mg</span></div>
+          </div>
+          <div class="mg-bar-limit">/ <span id="todayLimit">400</span> mg daily limit</div>
+        </div>
+        <div class="mg-bar-track">
+          <div class="mg-bar-fill" id="mgBarFill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="mg-active-note"><span id="activeMgNote">0 mg active right now</span></div>
+      <div class="mg-personal-note" id="personalNote">Loading personalized guidance…</div>
+    </div>
+  </div>
+
+  <!-- ===== 4. LOG A DRINK ===== -->
+  <div class="section">
+    <div class="section-title">Log a Drink</div>
+    <div class="gm-card">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="drinkSearch" type="text" placeholder="Search drinks…" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="drink-grid" id="drinkGrid"></div>
+      <div class="custom-row">
+        <input class="custom-input" id="customName" type="text" placeholder="Custom drink name" autocomplete="off">
+        <input class="custom-input custom-mg" id="customMg" type="number" placeholder="mg" min="1" max="2000">
+        <button class="custom-add-btn" onclick="logCustom()">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 5. LOGGED TODAY ===== -->
+  <div class="section">
+    <div class="section-title">Logged Today</div>
+    <div class="gm-card" id="logCard">
+      <div class="log-list" id="logList">
+        <div class="log-empty">No drinks logged yet</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function () {
+'use strict';
+
+// ── Constants ───────────────────────────────────────────────────────────────
+const LS_LOGS   = 'caf:logs';
+const LS_CUSTOM = 'caf:custom';
+const PW_KEY    = 'po_water_v1';
+const WHOOP_KEY = 'whoop_tokens_v1';
+const HALF_LIFE = 5;       // hours
+const PEAK_OFFSET = 0.75;  // hours (+45 min)
+const FDA_CEIL  = 400;     // mg/day
+const CIRCUM    = 2 * Math.PI * 40; // ring circumference
+
+// ── Drink database ──────────────────────────────────────────────────────────
+const DRINKS = [
+  // Coffee
+  {n:'Espresso (single)',       e:'☕',mg:63},
+  {n:'Espresso (double)',       e:'☕',mg:126},
+  {n:'Drip Coffee (8 oz)',      e:'☕',mg:95},
+  {n:'Drip Coffee (12 oz)',     e:'☕',mg:142},
+  {n:'Drip Coffee (16 oz)',     e:'☕',mg:190},
+  {n:'Cold Brew (12 oz)',       e:'🧊',mg:155},
+  {n:'Cold Brew (16 oz)',       e:'🧊',mg:207},
+  {n:'French Press (8 oz)',     e:'☕',mg:107},
+  {n:'Americano',               e:'☕',mg:77},
+  {n:'Cappuccino',              e:'☕',mg:63},
+  {n:'Latte (12 oz)',           e:'🥛',mg:63},
+  {n:'Macchiato',               e:'☕',mg:75},
+  {n:'Flat White',              e:'☕',mg:130},
+  {n:'Pour Over (10 oz)',       e:'☕',mg:115},
+  {n:'Moka Pot (4 oz)',         e:'☕',mg:80},
+  {n:'Instant Coffee (8 oz)',   e:'☕',mg:62},
+  // Tea
+  {n:'Black Tea (8 oz)',        e:'🍵',mg:47},
+  {n:'Green Tea (8 oz)',        e:'🍵',mg:28},
+  {n:'Matcha Latte (12 oz)',    e:'🍵',mg:70},
+  {n:'Matcha (2g)',             e:'🍵',mg:50},
+  {n:'Oolong Tea (8 oz)',       e:'🍵',mg:37},
+  {n:'White Tea (8 oz)',        e:'🍵',mg:25},
+  {n:'Chai Latte (12 oz)',      e:'🍵',mg:50},
+  {n:'Earl Grey (8 oz)',        e:'🍵',mg:47},
+  {n:'Yerba Mate (8 oz)',       e:'🌿',mg:78},
+  {n:'Yerba Mate (16 oz)',      e:'🌿',mg:156},
+  // Energy Drinks
+  {n:'Red Bull (8.4 oz)',       e:'🔴',mg:80},
+  {n:'Red Bull (12 oz)',        e:'🔴',mg:114},
+  {n:'Monster (16 oz)',         e:'🟢',mg:160},
+  {n:'Bang (16 oz)',            e:'💥',mg:300},
+  {n:'Celsius (12 oz)',         e:'🔥',mg:200},
+  {n:'Ghost Energy (16 oz)',    e:'👻',mg:200},
+  {n:'Reign (16 oz)',           e:'💪',mg:300},
+  {n:'Rockstar (16 oz)',        e:'⭐',mg:160},
+  {n:'NOS (16 oz)',             e:'🏎️',mg:160},
+  {n:'G Fuel (12 oz)',          e:'🎮',mg:140},
+  {n:'Xyience (16 oz)',         e:'⚡',mg:200},
+  {n:'Alani Nu (12 oz)',        e:'🩷',mg:200},
+  {n:'Prime Energy (12 oz)',    e:'⚡',mg:200},
+  {n:'ZOA (16 oz)',             e:'🦁',mg:160},
+  // Pre-workout
+  {n:'Pre-workout (1 scoop)',   e:'🏋️',mg:200},
+  {n:'C4 Pre-workout (1 scoop)',e:'🏋️',mg:150},
+  {n:'Woke AF (1 scoop)',       e:'⚡',mg:333},
+  {n:'Total War (1 scoop)',     e:'💣',mg:250},
+  {n:'Gorilla Mode (1 scoop)', e:'🦍',mg:350},
+  // Soda
+  {n:'Diet Coke (12 oz)',       e:'🥤',mg:46},
+  {n:'Coca-Cola (12 oz)',       e:'🥤',mg:34},
+  {n:'Pepsi (12 oz)',           e:'🥤',mg:38},
+  {n:'Mountain Dew (12 oz)',    e:'🟡',mg:54},
+  {n:'Dr Pepper (12 oz)',       e:'🥤',mg:41},
+  {n:'Sprite (12 oz)',          e:'🥤',mg:0},
+  {n:'7UP (12 oz)',             e:'🥤',mg:0},
+  // Chocolate / Other
+  {n:'Dark Chocolate (1 oz)',   e:'🍫',mg:20},
+  {n:'Milk Chocolate (1 oz)',   e:'🍫',mg:6},
+  {n:'Chocolate Ice Cream',     e:'🍨',mg:5},
+  {n:'Hot Chocolate (8 oz)',    e:'🍫',mg:8},
+  {n:'Decaf Coffee (8 oz)',     e:'☕',mg:5},
+  {n:'Kombucha (16 oz)',        e:'🫙',mg:14},
+  {n:'Athletic Greens (1 scoop)',e:'🌿',mg:85},
+  {n:'5-Hour Energy (2 oz)',    e:'⚡',mg:200},
+  {n:'Vivarin (1 tablet)',      e:'💊',mg:200},
+];
+
+// ── State ───────────────────────────────────────────────────────────────────
+let chartMode = 'line';
+let curve     = [];          // length 145: indices 0..144 = 0h..24h step 10min
+let whoopData = null;        // {recoveryScore, wakeH, bedH}
+let weightKg  = 75;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0');
+}
+function getLogs() {
+  try { const a=JSON.parse(localStorage.getItem(LS_LOGS))||{}; return a[todayKey()]||[]; }
+  catch(e){ return []; }
+}
+function saveLogs(arr) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_LOGS))||{};
+    all[todayKey()] = arr;
+    localStorage.setItem(LS_LOGS, JSON.stringify(all));
+  } catch(e){}
+}
+function getCustom() {
+  try { return JSON.parse(localStorage.getItem(LS_CUSTOM))||[]; } catch(e){ return []; }
+}
+function saveCustom(arr) {
+  try { localStorage.setItem(LS_CUSTOM, JSON.stringify(arr)); } catch(e){}
+}
+function fmtH(h) {
+  const hh = Math.floor(((h % 24)+24)%24);
+  const mm  = Math.round(((h%1)||0)*60);
+  const ampm = hh<12?'am':'pm';
+  const disp = hh===0?12:hh>12?hh-12:hh;
+  return disp+(mm?':'+mm.toString().padStart(2,'0'):'')+' '+ampm;
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function gaussian(x,mu,sd){ return Math.exp(-0.5*((x-mu)/sd)**2); }
+function nowH() {
+  const d=new Date(); return d.getHours()+d.getMinutes()/60+d.getSeconds()/3600;
+}
+
+// ── Pharmacokinetics ─────────────────────────────────────────────────────────
+function activeMg(logs, atH) {
+  let total = 0;
+  logs.forEach(function(l) {
+    const sincePeak = atH - (l.loggedH + PEAK_OFFSET);
+    if (sincePeak < 0) {
+      // before peak: ramping up linearly (0→dose over PEAK_OFFSET hours)
+      const progress = (atH - l.loggedH) / PEAK_OFFSET;
+      if (progress > 0) total += l.mg * clamp(progress, 0, 1);
+    } else {
+      total += l.mg * Math.pow(0.5, sincePeak / HALF_LIFE);
+    }
+  });
+  return total;
+}
+
+function drinkMilestones(log) {
+  const peakH   = log.loggedH + PEAK_OFFSET;
+  const halfH   = log.loggedH + PEAK_OFFSET + HALF_LIFE;
+  const clearedH = log.loggedH + PEAK_OFFSET + HALF_LIFE * Math.log2(log.mg / 10);
+  return { peakH, halfH, clearedH };
+}
+
+// ── Energy model ─────────────────────────────────────────────────────────────
+function energyAt(h, logs, wake, bed) {
+  const tNorm = ((h % 24)+24)%24;
+  const asleep = tNorm < wake || tNorm >= bed;
+  const circ   = 50 + 18 * Math.cos(2*Math.PI*(tNorm-16.5)/24);
+  if (asleep) return clamp(circ-34, 3, 20);
+
+  const hoursAwake   = clamp(tNorm - wake, 0, 24);
+  const lunchDip     = 10 * gaussian(tNorm, 14, 1.4);
+  const sleepPres    = hoursAwake * 1.7;
+  const morningBump  = 10 * gaussian(tNorm - wake, 1.2, 0.9);
+  const caffActive   = activeMg(logs, tNorm);
+  const caffBoost    = 34 * (1 - Math.exp(-caffActive / 110));
+
+  return clamp(circ - lunchDip - sleepPres + morningBump + caffBoost, 0, 100);
+}
+
+function buildCurve(logs, wake, bed) {
+  const pts = [];
+  for (let i = 0; i <= 144; i++) {
+    const h = i * (24/144);
+    pts.push(energyAt(h, logs, wake, bed));
+  }
+  return pts;
+}
+
+function buildBaseCurve(wake, bed) {
+  return buildCurve([], wake, bed);
+}
+
+// ── Score color ───────────────────────────────────────────────────────────────
+function scoreColor(s) {
+  if (s >= 62) return '#6BE3A4';
+  if (s >= 40) return '#F2C063';
+  return '#FF6B6B';
+}
+function stateWord(s) {
+  if (s >= 80) return 'Peak';
+  if (s >= 62) return 'High';
+  if (s >= 50) return 'Steady';
+  if (s >= 40) return 'Dip';
+  return 'Low';
+}
+
+// ── Render ring ───────────────────────────────────────────────────────────────
+function setRing(score, label) {
+  score = Math.round(score);
+  const fill = document.getElementById('ringFill');
+  const pct  = clamp(score,0,100)/100;
+  fill.style.strokeDashoffset = CIRCUM * (1-pct);
+  fill.style.stroke = scoreColor(score);
+  document.getElementById('ringScore').textContent = score;
+  document.getElementById('ringState').textContent = stateWord(score);
+  document.getElementById('scoreLabel').textContent = label || stateWord(score);
+}
+
+// ── Chart render ──────────────────────────────────────────────────────────────
+function renderChart() {
+  const svg    = document.getElementById('curveSvg');
+  const wrap   = document.getElementById('curveWrap');
+  const W      = wrap.clientWidth  || 640;
+  const H      = wrap.clientHeight || 140;
+  svg.setAttribute('viewBox', '0 0 '+W+' '+H);
+
+  const logs    = getLogs();
+  const wake    = (whoopData && whoopData.wakeH)  != null ? whoopData.wakeH  : 7;
+  const bed     = (whoopData && whoopData.bedH)   != null ? whoopData.bedH   : 23;
+  curve         = buildCurve(logs, wake, bed);
+  const base    = buildBaseCurve(wake, bed);
+
+  const PAD_T=8, PAD_B=16, PAD_L=0, PAD_R=0;
+  const cW=W-PAD_L-PAD_R, cH=H-PAD_T-PAD_B;
+  function xOf(i){ return PAD_L + (i/144)*cW; }
+  function yOf(v){ return PAD_T + cH - (clamp(v,0,100)/100)*cH; }
+
+  // Night regions
+  const nightEl = document.getElementById('chartNight');
+  nightEl.innerHTML='';
+  function addNight(startH,endH) {
+    const x1=xOf(startH*(144/24)), x2=xOf(endH*(144/24));
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x',x1); r.setAttribute('y',PAD_T);
+    r.setAttribute('width',x2-x1); r.setAttribute('height',cH);
+    r.setAttribute('fill','rgba(255,255,255,0.025)');
+    nightEl.appendChild(r);
+  }
+  if (wake>0)  addNight(0, wake);
+  if (bed<24)  addNight(bed, 24);
+
+  // Hour gridlines (every 6h)
+  [6,12,18].forEach(function(h){
+    const x=xOf(h*(144/24));
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x);line.setAttribute('y1',PAD_T);
+    line.setAttribute('x2',x);line.setAttribute('y2',H-PAD_B);
+    line.setAttribute('stroke','rgba(255,255,255,0.06)');line.setAttribute('stroke-width','1');
+    nightEl.appendChild(line);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',x);txt.setAttribute('y',H-2);
+    txt.setAttribute('fill','rgba(255,255,255,0.25)');txt.setAttribute('font-size','9');
+    txt.setAttribute('text-anchor','middle');txt.setAttribute('font-family','monospace');
+    txt.textContent=h===0?'12a':h<12?h+'a':h===12?'12p':(h-12)+'p';
+    nightEl.appendChild(txt);
+  });
+
+  const lineEl  = document.getElementById('chartLine');
+  const barsEl  = document.getElementById('chartBars');
+  const stackEl = document.getElementById('chartStack');
+  lineEl.innerHTML=''; barsEl.innerHTML=''; stackEl.innerHTML='';
+
+  if (chartMode==='line') {
+    // Filled area
+    let areaD='M'+xOf(0)+','+yOf(0);
+    curve.forEach(function(v,i){ areaD+=' L'+xOf(i)+','+yOf(v); });
+    areaD+=' L'+xOf(144)+','+yOf(0)+' Z';
+    const area=document.createElementNS('http://www.w3.org/2000/svg','path');
+    area.setAttribute('d',areaD);
+    area.setAttribute('fill','url(#curveGrad)');
+    lineEl.appendChild(area);
+    // Line
+    let lineD='M'+xOf(0)+','+yOf(curve[0]);
+    curve.forEach(function(v,i){ if(i>0) lineD+=' L'+xOf(i)+','+yOf(v); });
+    const linePath=document.createElementNS('http://www.w3.org/2000/svg','path');
+    linePath.setAttribute('d',lineD);
+    linePath.setAttribute('fill','none');
+    linePath.setAttribute('stroke','#C9A36B');
+    linePath.setAttribute('stroke-width','2');
+    linePath.setAttribute('stroke-linejoin','round');
+    lineEl.appendChild(linePath);
+
+  } else if (chartMode==='bars') {
+    const barW=clamp((cW/144)*0.7,1,6);
+    curve.forEach(function(v,i){
+      const x=xOf(i)-barW/2;
+      const y=yOf(v); const bH=yOf(0)-y;
+      const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('x',x);r.setAttribute('y',y);
+      r.setAttribute('width',barW);r.setAttribute('height',Math.max(1,bH));
+      r.setAttribute('fill',scoreColor(v));r.setAttribute('opacity','0.7');
+      r.setAttribute('rx','1');
+      barsEl.appendChild(r);
+    });
+
+  } else { // stack
+    // Base area
+    let bAreaD='M'+xOf(0)+','+yOf(base[0]);
+    base.forEach(function(v,i){ if(i>0) bAreaD+=' L'+xOf(i)+','+yOf(v); });
+    bAreaD+=' L'+xOf(144)+','+yOf(0)+' M'+xOf(144)+','+H+' L'+xOf(0)+','+H+' Z';
+    const bArea=document.createElementNS('http://www.w3.org/2000/svg','path');
+    let bD='M'+xOf(0)+','+yOf(base[0]);
+    base.forEach(function(v,i){ if(i>0) bD+=' L'+xOf(i)+','+yOf(v); });
+    bD+=' L'+xOf(144)+','+(H-PAD_B)+' L'+xOf(0)+','+(H-PAD_B)+' Z';
+    bArea.setAttribute('d',bD);
+    bArea.setAttribute('fill','url(#baseGrad)');
+    stackEl.appendChild(bArea);
+    // Caffeine delta
+    let cD='M'+xOf(0)+','+yOf(base[0]);
+    curve.forEach(function(v,i){ cD+=(i===0?' ':'L')+xOf(i)+','+yOf(v); });
+    // back along base
+    for(let i=144;i>=0;i--) cD+=' L'+xOf(i)+','+yOf(base[i]);
+    cD+=' Z';
+    const cArea=document.createElementNS('http://www.w3.org/2000/svg','path');
+    cArea.setAttribute('d',cD);
+    cArea.setAttribute('fill','rgba(201,163,107,0.22)');
+    stackEl.appendChild(cArea);
+    // Base line
+    let bLine='M'+xOf(0)+','+yOf(base[0]);
+    base.forEach(function(v,i){ if(i>0) bLine+=' L'+xOf(i)+','+yOf(v); });
+    const bLP=document.createElementNS('http://www.w3.org/2000/svg','path');
+    bLP.setAttribute('d',bLine);bLP.setAttribute('fill','none');
+    bLP.setAttribute('stroke','rgba(118,116,110,0.55)');bLP.setAttribute('stroke-width','1.5');
+    bLP.setAttribute('stroke-dasharray','4 3');
+    stackEl.appendChild(bLP);
+    // Full line
+    let fLine='M'+xOf(0)+','+yOf(curve[0]);
+    curve.forEach(function(v,i){ if(i>0) fLine+=' L'+xOf(i)+','+yOf(v); });
+    const fLP=document.createElementNS('http://www.w3.org/2000/svg','path');
+    fLP.setAttribute('d',fLine);fLP.setAttribute('fill','none');
+    fLP.setAttribute('stroke','#C9A36B');fLP.setAttribute('stroke-width','2');
+    stackEl.appendChild(fLP);
+  }
+
+  renderNow(W,H,cH,PAD_T,PAD_B,cW);
+}
+
+function renderNow(W,H,cH,PAD_T,PAD_B,cW) {
+  const nowEl = document.getElementById('chartNow');
+  nowEl.innerHTML='';
+  const nh = nowH();
+  const ni = nh*(144/24);
+  const PAD_L=0;
+  const xOf = function(i){ return PAD_L+(i/144)*(W-PAD_L); };
+  const yOf = function(v){ return PAD_T+cH-(clamp(v,0,100)/100)*cH; };
+  const x   = xOf(ni);
+  const v   = curve[Math.round(clamp(ni,0,144))];
+  const y   = yOf(v);
+  const vLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+  vLine.setAttribute('x1',x);vLine.setAttribute('y1',PAD_T);
+  vLine.setAttribute('x2',x);vLine.setAttribute('y2',H-PAD_B);
+  vLine.setAttribute('stroke','rgba(255,255,255,0.22)');vLine.setAttribute('stroke-width','1');
+  vLine.setAttribute('stroke-dasharray','3 2');
+  nowEl.appendChild(vLine);
+  const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx',x);dot.setAttribute('cy',y);dot.setAttribute('r','5');
+  dot.setAttribute('fill',scoreColor(v));
+  dot.setAttribute('stroke','rgba(10,10,11,0.8)');dot.setAttribute('stroke-width','2');
+  nowEl.appendChild(dot);
+  const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  glow.setAttribute('cx',x);glow.setAttribute('cy',y);glow.setAttribute('r','9');
+  glow.setAttribute('fill',scoreColor(v));glow.setAttribute('opacity','0.15');
+  nowEl.appendChild(glow);
+}
+
+function setChartMode(m) {
+  chartMode=m;
+  ['line','bars','stack'].forEach(function(x){
+    document.getElementById('btn'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active',x===m);
+  });
+  renderChart();
+}
+
+// ── Scrub interaction ─────────────────────────────────────────────────────────
+(function(){
+  let dragging=false;
+  function onMove(e,wrap,svg) {
+    const rect=wrap.getBoundingClientRect();
+    const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    const pct=clamp(cx/rect.width,0,1);
+    const ni=Math.round(pct*144);
+    const h=ni*(24/144);
+    const score=curve[ni]||0;
+    const tip=document.getElementById('scrubTip');
+    tip.style.display='block';
+    tip.style.left=clamp(cx,40,rect.width-40)+'px';
+    tip.style.top='4px';
+    tip.textContent=fmtH(h)+' · '+Math.round(score);
+
+    // update hover dot
+    const hoverEl=document.getElementById('chartHover');
+    hoverEl.innerHTML='';
+    const W=wrap.clientWidth,H=wrap.clientHeight;
+    const cH=H-24,PAD_T=8;
+    const yOf=function(v){return PAD_T+cH-(clamp(v,0,100)/100)*cH;};
+    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',cx);dot.setAttribute('cy',yOf(score));dot.setAttribute('r','4');
+    dot.setAttribute('fill','#FAFAFA');dot.setAttribute('stroke','rgba(201,163,107,0.6)');dot.setAttribute('stroke-width','1.5');
+    hoverEl.appendChild(dot);
+
+    setRing(score, stateWord(score)+' · '+fmtH(h));
+  }
+  function onLeave() {
+    document.getElementById('scrubTip').style.display='none';
+    document.getElementById('chartHover').innerHTML='';
+    rerender();
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    const wrap=document.getElementById('curveWrap');
+    wrap.addEventListener('mousemove',function(e){onMove(e,wrap);});
+    wrap.addEventListener('mouseleave',onLeave);
+    wrap.addEventListener('touchstart',function(e){dragging=true;onMove(e,wrap);},{passive:true});
+    wrap.addEventListener('touchmove',function(e){if(dragging)onMove(e,wrap);},{passive:true});
+    wrap.addEventListener('touchend',function(){dragging=false;onLeave();});
+  });
+})();
+
+// ── Smart timing calcs ────────────────────────────────────────────────────────
+function computeTimings(wake, bed) {
+  // Peak focus: highest energy score in wake window
+  let peakScore=-1, peakH=wake;
+  for(let i=0;i<=144;i++){
+    const h=i*(24/144);
+    if(h<wake||h>=bed) continue;
+    const s=curve[i];
+    if(s>peakScore){peakScore=s;peakH=h;}
+  }
+  // Predicted crash: steepest sustained drop in next 8h from now
+  const nowHr=nowH();
+  let crashH=null, crashScore=null;
+  let maxDrop=-1;
+  for(let i=0;i<=144;i++){
+    const h=i*(24/144);
+    if(h<nowHr||h>nowHr+8) continue;
+    if(h+1>24) break;
+    const j=Math.min(Math.round((h+1)*(144/24)),144);
+    const drop=curve[i]-curve[j];
+    if(drop>maxDrop){maxDrop=drop;crashH=h+1;crashScore=curve[j];}
+  }
+  // Coffee cutoff: bedtime − 5 * log2(95/30)  ≈ bedtime − 7.93h
+  const cutoffH = bed - 5 * Math.log2(95/30);
+
+  return {peakH, peakScore, crashH, crashScore, maxDrop, cutoffH};
+}
+
+function renderTimings() {
+  const wake = (whoopData && whoopData.wakeH) != null ? whoopData.wakeH  : 7;
+  const bed  = (whoopData && whoopData.bedH)  != null ? whoopData.bedH   : 23;
+  const logs = getLogs();
+  const t    = computeTimings(wake, bed);
+
+  document.getElementById('stPeakTime').textContent = fmtH(t.peakH);
+  document.getElementById('stPeakSub').textContent  = 'Score '+Math.round(t.peakScore)+' · ~2 hr window';
+
+  if(t.maxDrop>8 && t.crashH!=null){
+    document.getElementById('stCrashTime').textContent = fmtH(t.crashH);
+    document.getElementById('stCrashSub').textContent  = 'Energy drops to '+Math.round(t.crashScore);
+  } else {
+    document.getElementById('stCrashTime').textContent = 'None predicted';
+    document.getElementById('stCrashSub').textContent  = 'Stable next 8h';
+  }
+
+  document.getElementById('stCutoff').textContent   = fmtH(t.cutoffH);
+  document.getElementById('stCutoffSub').textContent = 'To stay <30 mg by '+fmtH(bed);
+
+  // Tips
+  const tips=[];
+  const totalMg=logs.reduce(function(a,l){return a+l.mg;},0);
+  tips.push('Front-load caffeine — consume before '+fmtH(t.peakH)+' to ride the peak focus window.');
+  tips.push('Last coffee by '+fmtH(t.cutoffH)+' to ensure <30 mg active at bedtime ('+fmtH(bed)+').');
+  tips.push('Drink 500 ml water before your first coffee to offset morning dehydration.');
+  if(t.maxDrop>12 && t.crashH!=null)
+    tips.push('Beat the '+fmtH(t.crashH)+' crash with 10 min of bright daylight or a 20-min nap before it hits.');
+  if(whoopData && whoopData.recoveryScore != null && whoopData.recoveryScore<33)
+    tips.push('Low WHOOP recovery ('+Math.round(whoopData.recoveryScore)+'%) — consider keeping caffeine under 200 mg today and avoiding it after '+fmtH(bed-9)+'.');
+
+  const ul=document.getElementById('tipsList');
+  ul.innerHTML=tips.map(function(t){
+    return '<li><span class="tip-dot"></span>'+t+'</li>';
+  }).join('');
+
+  // Footer band
+  document.getElementById('ftPeak').textContent   = fmtH(t.peakH)+' – '+fmtH(t.peakH+2);
+  document.getElementById('ftCrash').textContent  = t.maxDrop>8?fmtH(t.crashH):'None today';
+  document.getElementById('ftCutoff').textContent = fmtH(t.cutoffH);
+}
+
+// ── Today section ──────────────────────────────────────────────────────────────
+function renderToday() {
+  const logs    = getLogs();
+  const totalMg = logs.reduce(function(a,l){return a+l.mg;},0);
+  const active  = Math.round(activeMg(logs, nowH()));
+  const recovery= whoopData && whoopData.recoveryScore;
+
+  let limit = FDA_CEIL;
+  if(recovery!=null && recovery<33) limit=200;
+  else if(recovery!=null && recovery<67) limit=300;
+
+  const targetMg = Math.round(3 * weightKg);
+
+  document.getElementById('todayMg').textContent  = totalMg;
+  document.getElementById('todayLimit').textContent= limit;
+  const pct = clamp(totalMg/limit*100,0,100);
+  const fill = document.getElementById('mgBarFill');
+  fill.style.width = pct+'%';
+  fill.style.background = pct>=100?'#FF6B6B':pct>=75?'#F2C063':'#6BE3A4';
+
+  document.getElementById('activeMgNote').textContent = active+' mg active right now';
+
+  let note = 'Target ≈ '+targetMg+' mg/day (3 mg/kg at '+Math.round(weightKg)+' kg). FDA ceiling: '+limit+' mg.';
+  if(recovery!=null && recovery<33)
+    note+=' Low recovery today — reduce intake and avoid caffeine after '+fmtH(14)+'.';
+  else if(recovery!=null && recovery<67)
+    note+=' Moderate recovery — stay below '+limit+' mg and cut off by '+fmtH(16)+'.';
+  else if(totalMg>targetMg)
+    note+=' You\'re above your personal target for today.';
+  document.getElementById('personalNote').textContent=note;
+}
+
+// ── Drink grid ────────────────────────────────────────────────────────────────
+function renderDrinkGrid(query) {
+  const custom = getCustom();
+  const all    = custom.concat(DRINKS);
+  const q      = (query||'').toLowerCase().trim();
+  const filtered = q ? all.filter(function(d){return d.n.toLowerCase().includes(q)||(''+d.mg).includes(q);}) : all;
+
+  const grid = document.getElementById('drinkGrid');
+  if(!filtered.length){
+    grid.innerHTML='<div style="color:var(--text-tertiary);font-size:12px;padding:12px 0;grid-column:1/-1">No drinks found</div>';
+    return;
+  }
+  grid.innerHTML = filtered.slice(0,48).map(function(d){
+    const mg = d.mg;
+    return '<button class="drink-btn" onclick="logDrink('+JSON.stringify(d.n)+','+JSON.stringify(d.e||'☕')+','+mg+')">'
+      +'<span class="drink-emoji">'+(d.e||'☕')+'</span>'
+      +'<span class="drink-name">'+escHtml(d.n)+'</span>'
+      +'<span class="drink-mg">'+mg+' mg</span>'
+      +'</button>';
+  }).join('');
+}
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('drinkSearch').addEventListener('input',function(){
+    renderDrinkGrid(this.value);
+  });
+});
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+window.logDrink = function(name, emoji, mg) {
+  if(!mg) return;
+  const logs=getLogs();
+  logs.push({name:name, emoji:emoji, mg:mg, loggedH:nowH(), ts:Date.now()});
+  saveLogs(logs);
+  rerender();
+};
+
+window.logCustom = function() {
+  const n=(document.getElementById('customName').value||'').trim();
+  const mg=parseInt(document.getElementById('customMg').value,10)||0;
+  if(!n||!mg) return;
+  // save to custom list
+  const custom=getCustom();
+  if(!custom.find(function(c){return c.n===n;})){
+    custom.unshift({n:n,e:'⚡',mg:mg});
+    saveCustom(custom);
+  }
+  logDrink(n,'⚡',mg);
+  document.getElementById('customName').value='';
+  document.getElementById('customMg').value='';
+};
+
+window.deleteLog = function(idx) {
+  const logs=getLogs();
+  logs.splice(idx,1);
+  saveLogs(logs);
+  rerender();
+};
+
+// ── Logged today ───────────────────────────────────────────────────────────────
+function renderLogList() {
+  const logs=getLogs();
+  const el=document.getElementById('logList');
+  if(!logs.length){
+    el.innerHTML='<div class="log-empty">No drinks logged yet ☕</div>';
+    return;
+  }
+  el.innerHTML=logs.map(function(l,i){
+    const m=drinkMilestones(l);
+    const timeStr='Logged '+fmtH(l.loggedH)+
+      ' · Peak '+fmtH(m.peakH)+
+      ' · Half '+fmtH(m.halfH)+
+      (m.clearedH<28?' · Clear '+fmtH(m.clearedH):'');
+    return '<div class="log-item">'
+      +'<div class="log-emoji">'+(l.emoji||'☕')+'</div>'
+      +'<div class="log-body">'
+        +'<div class="log-name"><span class="log-mg-badge">'+l.mg+' mg</span>'+escHtml(l.name)+'</div>'
+        +'<div class="log-times">'+timeStr+'</div>'
+      +'</div>'
+      +'<button class="log-del-btn" onclick="deleteLog('+i+')" aria-label="Delete">×</button>'
+      +'</div>';
+  }).join('');
+}
+
+// ── WHOOP fetch ───────────────────────────────────────────────────────────────
+async function loadWhoop() {
+  const raw = localStorage.getItem(WHOOP_KEY);
+  if(!raw) return;
+  let tokens;
+  try { tokens=JSON.parse(raw); } catch(e){ return; }
+  if(!tokens || !tokens.access_token) return;
+
+  async function wFetch(path) {
+    let res = await fetch('/api/whoop-data?path='+encodeURIComponent(path),{
+      headers:{Authorization:'Bearer '+tokens.access_token}
+    });
+    if(res.status===401){
+      const ref=await fetch('/api/whoop-refresh',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({refresh_token:tokens.refresh_token})
+      });
+      if(!ref.ok) throw new Error('auth');
+      const newTk=await ref.json();
+      Object.assign(tokens,newTk);
+      try{localStorage.setItem(WHOOP_KEY,JSON.stringify(tokens));}catch(e){}
+      res=await fetch('/api/whoop-data?path='+encodeURIComponent(path),{
+        headers:{Authorization:'Bearer '+tokens.access_token}
+      });
+    }
+    if(!res.ok) throw new Error('fetch');
+    return res.json();
+  }
+
+  try {
+    const [rec, slp] = await Promise.all([
+      wFetch('/v1/cycle?limit=1'),
+      wFetch('/v1/activity/sleep?limit=1')
+    ]);
+    const recRec = rec && rec.records && rec.records[0];
+    const slpRec = slp && slp.records && slp.records[0];
+    const recoveryScore = recRec && recRec.score ? recRec.score.recovery_score : null;
+    let wakeH=null, bedH=null;
+    if(slpRec) {
+      // sleep start = bedtime of prior night
+      if(slpRec.start){
+        const d=new Date(slpRec.start);
+        bedH=d.getHours()+d.getMinutes()/60;
+      }
+      // sleep end = wake time
+      if(slpRec.end){
+        const d=new Date(slpRec.end);
+        wakeH=d.getHours()+d.getMinutes()/60;
+      }
+    }
+    whoopData={recoveryScore,wakeH,bedH};
+    rerender();
+  } catch(e) {
+    // degrade gracefully — defaults remain
+  }
+}
+
+// ── Profile from po_water_v1 ──────────────────────────────────────────────────
+function loadProfile() {
+  try {
+    const s=JSON.parse(localStorage.getItem(PW_KEY));
+    if(s && s.profile && s.profile.weightKg){
+      let kg=parseFloat(s.profile.weightKg)||75;
+      if(s.weightUnit==='lb'||s.profile.weightUnit==='lb') kg=kg/2.20462;
+      weightKg=clamp(kg,30,250);
+    }
+  } catch(e){}
+}
+
+// ── Main rerender ─────────────────────────────────────────────────────────────
+function rerender() {
+  loadProfile();
+  renderChart();
+  const nh=nowH();
+  const score=curve[Math.round(clamp(nh*(144/24),0,144))];
+  setRing(score, stateWord(score));
+  renderTimings();
+  renderToday();
+  renderLogList();
+  renderDrinkGrid(document.getElementById('drinkSearch').value);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',function(){
+  rerender();
+  loadWhoop();
+  // refresh curve every minute
+  setInterval(function(){
+    const nh=nowH();
+    renderNow(
+      document.getElementById('curveWrap').clientWidth||640,
+      document.getElementById('curveWrap').clientHeight||140,
+      (document.getElementById('curveWrap').clientHeight||140)-24, 8, 16,
+      document.getElementById('curveWrap').clientWidth||640
+    );
+    const score=curve[Math.round(clamp(nh*(144/24),0,144))];
+    setRing(score, stateWord(score));
+    renderToday();
+  }, 60000);
+});
+
+window.addEventListener('resize', function(){
+  clearTimeout(window._resizeTimer);
+  window._resizeTimer=setTimeout(renderChart,120);
+});
+
+// ── Cloud sync ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',function(){
+  if(typeof initCloudSync==='function'){
+    initCloudSync({
+      appKey:'caffeine',
+      syncedKeys:[LS_LOGS, LS_CUSTOM],
+      onApplied: rerender
+    });
+  }
+});
+
+})();
+</script>
+</body>
+</html>
