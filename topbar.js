@@ -16,96 +16,125 @@
 
   // -------- CSS --------
   const css = `
+:root {
+  --lt-bg: #020617;
+  --lt-surface: rgba(15, 23, 42, 0.55);
+  --lt-border: rgba(63, 63, 70, 0.55);
+  --lt-text: #F4F4F5;
+  --lt-text-2: #A1A1AA;
+  --lt-text-3: #71717A;
+  --lt-accent: #2DD4BF;
+  --lt-accent-soft: rgba(45, 212, 191, 0.12);
+  --lt-accent-line: rgba(45, 212, 191, 0.28);
+  --lt-warn: #FBBF24;
+  --lt-danger: #FB7185;
+  --lt-radius: 16px;
+  --lt-font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --lt-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
 .topbar {
   position: sticky; top: 0; z-index: 40;
   display: flex; justify-content: flex-end; align-items: center;
   gap: 8px;
-  padding: max(10px, env(safe-area-inset-top)) 14px 8px;
-  background: #0a0a0b;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  padding: max(8px, env(safe-area-inset-top)) 14px 8px;
+  background: rgba(2, 6, 23, 0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--lt-border);
+  font-family: var(--lt-font);
 }
 .topbar-water-wrap { display: flex; align-items: stretch; }
 .topbar-water-pill {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 14px;
-  background: rgba(125, 211, 252, 0.08);
-  border: 1px solid rgba(125, 211, 252, 0.16);
+  padding: 9px 14px; min-height: 44px;
+  background: var(--lt-accent-soft);
+  border: 1px solid var(--lt-accent-line);
   border-right: none;
-  border-radius: 12px 0 0 12px;
-  text-decoration: none; color: #FAFAFA;
+  border-radius: 14px 0 0 14px;
+  text-decoration: none; color: var(--lt-text);
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
 }
+.topbar-water-pill:hover { background: rgba(45, 212, 191, 0.18); }
 .topbar-water-pill .topbar-pill-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #7DD3FC; flex-shrink: 0;
+  background: var(--lt-accent); flex-shrink: 0;
 }
-.topbar-water-pill.warn .topbar-pill-dot { background: #fbbf24; }
+.topbar-water-pill.warn .topbar-pill-dot { background: var(--lt-warn); }
 .topbar-water-pill.miss .topbar-pill-dot {
-  background: #ff8a8a;
+  background: var(--lt-danger);
   animation: topbar-miss-pulse 1.6s ease-in-out infinite;
 }
 @keyframes topbar-miss-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(251, 113, 133, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar-water-pill.miss .topbar-pill-dot { animation: none; }
 }
 .topbar-pill-count {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13px; font-weight: 700; color: #FAFAFA;
+  font-family: var(--lt-mono);
+  font-size: 13px; font-weight: 700; color: var(--lt-text);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .topbar-water-add {
-  width: 44px;
-  border: 1px solid rgba(125, 211, 252, 0.16);
-  background: linear-gradient(180deg, rgba(125, 211, 252, 0.28), rgba(110, 231, 183, 0.28));
-  color: #FFFFFF; font-family: inherit;
+  width: 46px; min-height: 44px;
+  border: 1px solid var(--lt-accent-line);
+  background: rgba(45, 212, 191, 0.22);
+  color: var(--lt-text); font-family: inherit;
   font-size: 20px; font-weight: 700; line-height: 1;
-  cursor: pointer; border-radius: 0 12px 12px 0;
+  cursor: pointer; border-radius: 0 14px 14px 0;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, transform 0.10s;
 }
 .topbar-water-add:active { transform: scale(0.94); }
-.topbar-water-add.flash {
-  background: linear-gradient(180deg, rgba(125, 211, 252, 0.7), rgba(110, 231, 183, 0.7));
+.topbar-water-add:focus-visible,
+.topbar-water-pill:focus-visible,
+.topbar-finance-btn:focus-visible,
+.bottombar-tab:focus-visible {
+  outline: 2px solid var(--lt-accent); outline-offset: 2px;
 }
+.topbar-water-add.flash { background: rgba(45, 212, 191, 0.6); }
 .topbar-finance-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  width: 46px; height: 44px;
+  border: 1px solid var(--lt-border);
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px; text-decoration: none;
+  border-radius: 14px; text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s;
 }
 .topbar-finance-btn:hover { background: rgba(255, 255, 255, 0.08); }
 .topbar-finance-icon {
-  font-size: 20px; line-height: 1;
+  font-size: 19px; line-height: 1;
   filter: grayscale(100%) brightness(1.4); opacity: 0.85;
 }
 .bottombar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   display: flex; justify-content: space-around; align-items: stretch;
   padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
-  background: #0a0a0b;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  background: rgba(2, 6, 23, 0.78);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border-top: 1px solid var(--lt-border);
+  font-family: var(--lt-font);
 }
 .bottombar-tab {
-  flex: 1;
+  flex: 1; min-height: 48px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px; padding: 6px 0 4px; text-decoration: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--lt-text-3);
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   -webkit-tap-highlight-color: transparent; transition: color 0.15s;
 }
 .bottombar-tab-icon {
-  font-size: 24px; line-height: 1;
+  font-size: 23px; line-height: 1;
   filter: grayscale(100%) brightness(1.2); opacity: 0.55;
   transition: opacity 0.15s, filter 0.15s, transform 0.10s;
 }
-.bottombar-tab.active { color: #FAFAFA; }
+.bottombar-tab.active { color: var(--lt-accent); }
 .bottombar-tab.active .bottombar-tab-icon {
-  filter: grayscale(100%) brightness(1.6); opacity: 1;
+  filter: grayscale(100%) brightness(1.8); opacity: 1;
 }
 .bottombar-tab:active .bottombar-tab-icon { transform: scale(0.92); }
 body.has-bottombar {
@@ -115,11 +144,11 @@ body.has-bottombar {
   .topbar { padding-left: 10px; padding-right: 10px; gap: 6px; }
   .topbar-water-pill { padding: 8px 11px; gap: 6px; }
   .topbar-pill-count { font-size: 12px; }
-  .topbar-water-add { width: 40px; font-size: 18px; }
-  .topbar-finance-btn { width: 40px; height: 38px; }
+  .topbar-water-add { width: 44px; font-size: 18px; }
+  .topbar-finance-btn { width: 44px; height: 44px; }
   .topbar-finance-icon { font-size: 18px; }
-  .bottombar-tab-icon { font-size: 22px; }
-  .bottombar-tab { font-size: 10px; }
+  .bottombar-tab-icon { font-size: 21px; }
+  .bottombar-tab { font-size: 9.5px; }
 }
 html, body { -webkit-text-size-adjust: 100%; }
 @media (max-width: 768px) {
@@ -167,6 +196,9 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   <a href="index.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span><span>Main</span>
   </a>
+  <a href="life.html" class="bottombar-tab" data-page="life">
+    <span class="bottombar-tab-icon">🌙</span><span>Life</span>
+  </a>
   <a href="health.html" class="bottombar-tab" data-page="health">
     <span class="bottombar-tab-icon">💊</span><span>Health</span>
   </a>
@@ -185,6 +217,7 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   function shouldShowChrome() { return !isFinancePage() && !isEmbedded(); }
   function currentPageKey() {
     const p = (window.location.pathname || '').toLowerCase();
+    if (p.endsWith('life.html')) return 'life';
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
     return 'main';
